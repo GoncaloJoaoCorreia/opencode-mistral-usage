@@ -58,22 +58,24 @@ When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
 (slot `sidebar.content`, appended below the built-in content):
 
 ```
-▼ MISTRAL TEAM ◐
-  Plan TEAM  PAYG · Acme Org
-  API ████████░░░░░░░░ 42%  €42.50/€100.00  reset 2026-12-01
-  Limit 12.34/100        ← only with MISTRAL_ADMIN_API_KEY
+▼ MISTRAL ◐
+  API ████████░░░░░░░░ 42%  11 days to reset
+  VIBE ░░░░░░░░░░░░░░░░ —   ← second bar row when vibe_budget is present
   RPS 5                  ← only with MISTRAL_ADMIN_API_KEY
   mistral-large-latest 12.5k tpm   ← top models by tokens/min, admin key only
+  spend limit reached    ← only when the admin spend limit is hit
 ```
 
-- **Header row** shows `▼`/`▶` + `MISTRAL` + the plan name (+ a `◐` while refreshing).
+- **Header row** shows `▼`/`▶` + `MISTRAL` (+ a `◐` while refreshing).
   **Click the header row** to collapse/expand the section — the click handler is
   `onMouseDown` on the header `<text>` element. The collapsed state is persisted
   (host durable storage), so it survives TUI restarts and hot reloads.
-- **Budget bar**: `█`/`░` cells from `usage_percentage` over `initial_budget`
-  (`/v1/billing/budget`), colored green < 80 %, yellow < 95 %, red ≥ 95 %.
+- **Budget bar**: `█`/`░` cells from `usage_percentage` (`/v1/billing/budget`), colored
+  green < 80 %, yellow < 95 %, red ≥ 95 %, followed by the percentage and a relative
+  reset hint — `x days to reset`, or hours/minutes when the reset is closer.
   `VIBE` gets a second bar row when `vibe_budget` is present. The bar is a fixed
-  20 cells wide (the slot input exposes no width).
+  20 cells wide (the slot input exposes no width). No plan name or currency amounts
+  are shown.
 - **Polling**: usage is fetched on load and every 60 s. **Refresh manually** with the
   palette command **“Mistral: refresh usage”** (`Ctrl+P`) or the slash command
   `/mistral-usage` in the prompt. **“Mistral: collapse/expand section”** (slash

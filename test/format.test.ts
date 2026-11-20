@@ -1,7 +1,7 @@
 // Unit tests for src/lib/format.ts — pure helpers, no fetch, no DOM.
 // Run: node --test test/   (node >= 22.18 strips types; erasable TS only)
 // @ts-ignore -- node type stripping requires the explicit .ts extension (TS5097 without allowImportingTsExtensions)
-import { barColor, barLevel, clampPct, formatCurrency, formatMoney, formatNumber, formatResetAt, renderBar } from "../src/lib/format.ts"
+import { barColor, barLevel, clampPct, formatCurrency, formatMoney, formatNumber, formatResetAt, formatResetIn, renderBar } from "../src/lib/format.ts"
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
@@ -88,4 +88,32 @@ test("formatResetAt: ISO → YYYY-MM-DD (UTC), null → —, garbage passes thro
   assert.equal(formatResetAt(undefined), "—")
   assert.equal(formatResetAt(""), "—")
   assert.equal(formatResetAt("not-a-date"), "not-a-date")
+})
+
+test("formatResetIn: picks the appropriate unit and reads 'x <unit> to reset'", () => {
+  const now = new Date("2026-11-20T12:00:00.000Z")
+  // 11 days ahead → days
+  assert.equal(formatResetIn("2026-12-01T12:00:00.000Z", now), "11 days to reset")
+  // exactly 1 day ahead → singular
+  assert.equal(formatResetIn("2026-11-21T12:00:00.000Z", now), "1 day to reset")
+  // 12 hours ahead → hours
+  assert.equal(formatResetIn("2026-11-21T00:00:00.000Z", now), "12 hours to reset")
+  // 36 hours ahead → 1 day (days branch starts at 24 h)
+  assert.equal(formatResetIn("2026-11-22T00:00:00.000Z", now), "1 day to reset")
+  // exactly 1 hour ahead → singular
+  assert.equal(formatResetIn("2026-11-20T13:00:00.000Z", now), "1 hour to reset")
+  // 45 minutes ahead → minutes
+  assert.equal(formatResetIn("2026-11-20T12:45:00.000Z", now), "45 minutes to reset")
+  // 1 minute ahead → singular
+  assert.equal(formatResetIn("2026-11-20T12:01:00.000Z", now), "1 minute to reset")
+  // under a minute → less than a minute
+  assert.equal(formatResetIn("2026-11-20T12:00:30.000Z", now), "less than a minute to reset")
+  // past → reset due
+  assert.equal(formatResetIn("2026-11-19T12:00:00.000Z", now), "reset due")
+  assert.equal(formatResetIn("2026-11-20T12:00:00.000Z", now), "reset due")
+  // null / garbage → null (caller hides the hint)
+  assert.equal(formatResetIn(null, now), null)
+  assert.equal(formatResetIn(undefined, now), null)
+  assert.equal(formatResetIn("", now), null)
+  assert.equal(formatResetIn("not-a-date", now), null)
 })

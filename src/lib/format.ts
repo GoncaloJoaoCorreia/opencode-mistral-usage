@@ -109,3 +109,23 @@ export function formatResetAt(iso: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return iso
   return d.toISOString().slice(0, 10)
 }
+
+/**
+ * Relative time until the budget resets, in the largest appropriate unit:
+ * "x minutes to reset" / "x hours to reset" / "x days to reset" (singular handled).
+ * Past or unparseable dates → "reset due" / null respectively.
+ */
+export function formatResetIn(iso: string | null | undefined, now: Date = new Date()): string | null {
+  if (!iso) return null
+  const target = new Date(iso).getTime()
+  if (Number.isNaN(target)) return null
+  const ms = target - now.getTime()
+  if (ms <= 0) return "reset due"
+  const minutes = Math.floor(ms / 60_000)
+  if (minutes < 1) return "less than a minute to reset"
+  if (minutes < 60) return `${minutes} ${minutes === 1 ? "minute" : "minutes"} to reset`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} ${hours === 1 ? "hour" : "hours"} to reset`
+  const days = Math.floor(hours / 24)
+  return `${days} ${days === 1 ? "day" : "days"} to reset`
+}

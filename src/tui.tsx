@@ -1,10 +1,10 @@
 /** @jsxImportSource @opentui/solid */
 // opencode-mistral-usage — TUI-only OpenCode plugin.
 //
-// Adds a "MISTRAL" section to the sidebar (slot: sidebar.content, appended) showing the
-// current Mistral plan and a graphical bar for the billing-period budget usage
-// (/v1/billing/budget api_budget / vibe_budget), plus admin spend-limit / rate-limit rows
-// when MISTRAL_ADMIN_API_KEY is configured and accepted.
+// Adds a "MISTRAL" section to the sidebar (slot: sidebar.content, appended) showing a
+// graphical bar for the billing-period budget usage (/v1/billing/budget api_budget /
+// vibe_budget) with a relative "x days to reset" hint, plus admin rate-limit rows when
+// MISTRAL_ADMIN_API_KEY is configured and accepted.
 //
 // - Header row is a <text> element with onMouseDown (a <text> is a scene Renderable, so the
 //   handler attaches and hit-testing reaches it; handlers on <span> children are silently
@@ -21,7 +21,7 @@ import { Plugin } from "@opencode/plugin/tui"
 // @ts-ignore -- the host loader and node type stripping use the explicit .ts extension (TS5097 without allowImportingTsExtensions)
 import { fetchUsage, resolveKeys, resolveStoredKey, type CredentialClient, type KeyOptions, type UsageError, type UsageSnapshot } from "./lib/mistral.ts"
 // @ts-ignore -- see above
-import { barLevel, formatMoney, formatNumber, formatResetAt, renderBar, type BudgetDetailInfo } from "./lib/format.ts"
+import { barLevel, formatNumber, formatResetIn, renderBar, type BudgetDetailInfo } from "./lib/format.ts"
 
 const POLL_MS = 60_000
 const BAR_WIDTH = 20 // fixed bar cells; the sidebar.content slot input exposes no width (Q4), so we try a defensive read and fall back to this
@@ -166,24 +166,20 @@ export default Plugin.define({
         const level = barLevel(props.detail?.usagePercentage)
         return level === "error" ? props.c.error : level === "warn" ? props.c.warning : props.c.success
       }
-      const usage = () => {
-        const pct = props.detail?.usagePercentage
-        const init = props.detail?.initialBudget
-        return pct != null && init != null ? (init * pct) / 100 : null
-      }
       const pctText = () => {
         const pct = bar().pct
         if (pct === null) return "  —"
-        return ` ${pct.toFixed(0)}%  ${formatMoney(usage(), props.detail?.currency)}/${formatMoney(props.detail?.initialBudget, props.detail?.currency)}`
+        return ` ${pct.toFixed(0)}%`
       }
+      const resetText = () => formatResetIn(props.detail?.resetAt)
       return (
         <text>
           <span style={{ fg: props.c.muted }}>{`  ${props.label} `}</span>
           <span style={{ fg: color() }}>{bar().filled}</span>
           <span style={{ fg: props.c.muted }}>{bar().empty}</span>
           <span style={{ fg: props.c.base }}>{pctText()}</span>
-          <Show when={props.detail?.resetAt != null}>
-            <span style={{ fg: props.c.muted }}>{`  reset ${formatResetAt(props.detail?.resetAt)}`}</span>
+          <Show when={resetText() != null}>
+            <span style={{ fg: props.c.muted }}>{`  ${resetText()}`}</span>
           </Show>
         </text>
       )
@@ -193,17 +189,11 @@ export default Plugin.define({
       const c = () => palette(((context as { theme?: unknown }).theme ?? {}) as ThemeLike)
       const snap = () => snapshot()
       const width = () => barWidth(props.input)
-      const planLabel = () => {
-        const s = snap()
-        if (!s || s.error || s.plan?.error) return ""
-        return s.plan?.planName ? ` ${s.plan.planName}` : ""
-      }
       return (
         <box flexDirection="column" marginTop={1}>
           {/* Click target: onMouseDown on the <text> element itself — never on a <span>. */}
           <text onMouseDown={() => toggleCollapsed()}>
             <span style={{ fg: c().accent, bold: true }}>{collapsed() ? "▶" : "▼"}{" MISTRAL"}</span>
-            <span style={{ fg: c().muted }}>{planLabel()}</span>
             <Show when={loading()}>
               <span style={{ fg: c().muted }}>{" ◐"}</span>
             </Show>
@@ -230,17 +220,6 @@ export default Plugin.define({
                   <span style={{ fg: c().warning }}>{"  plan: "}{snap()?.plan?.error ? errorText(snap()!.plan!.error!) : ""}</span>
                 </text>
               </Show>
-              <Show when={snap()?.plan != null && snap()?.plan?.error == null}>
-                <text>
-                  <span style={{ fg: c().base }}>{"  Plan "}{snap()?.plan?.planName ?? "—"}</span>
-                  <Show when={snap()?.plan?.paygEnabled === true}>
-                    <span style={{ fg: c().muted }}>{"  PAYG"}</span>
-                  </Show>
-                  <Show when={snap()?.workspace != null}>
-                    <span style={{ fg: c().muted }}>{"  · "}{snap()?.workspace}</span>
-                  </Show>
-                </text>
-              </Show>
               <Show when={snap()?.budget?.apiBudget != null}>
                 <BarRow label="API" detail={snap()?.budget?.apiBudget} width={width()} c={c()} />
               </Show>
@@ -254,19 +233,9 @@ export default Plugin.define({
               </Show>
               {/* Admin rows: only rendered when an admin key was configured (snapshot.admin). */}
               <Show when={snap()?.admin != null}>
-                <Show when={snap()?.admin?.spendLimit?.completion != null}>
+                <Show when={snap()?.admin?.spendLimit?.completion?.monthlyLimitReached === true}>
                   <text>
-                    <span style={{ fg: c().muted }}>{"  Limit "}</span>
-                    <span style={{ fg: c().base }}>
-                      {formatMoney(snap()?.admin?.spendLimit?.completion?.usage)}
-                      {"/"}
-                      {snap()?.admin?.spendLimit?.completion?.usageLimit == null
-                        ? "—"
-                        : formatMoney(snap()?.admin?.spendLimit?.completion?.usageLimit)}
-                    </span>
-                    <Show when={snap()?.admin?.spendLimit?.completion?.monthlyLimitReached === true}>
-                      <span style={{ fg: c().error }}>{"  reached"}</span>
-                    </Show>
+                    <span style={{ fg: c().error }}>{"  spend limit reached"}</span>
                   </text>
                 </Show>
                 <Show when={snap()?.admin?.spendLimit?.error != null}>
