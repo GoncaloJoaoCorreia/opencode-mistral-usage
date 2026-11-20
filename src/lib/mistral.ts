@@ -135,6 +135,55 @@ export function resolveKeys(options: KeyOptions = {}): MistralKeys {
   }
 }
 
+// ---- stored-credential fallback (OpenCode auth store) ---------------------------
+//
+// OpenCode's local API `GET /api/credential` (operationId `credential.list`) returns
+// stored credentials — including key values — to local clients (same mechanism as
+// `opencode auth export`). A TUI plugin can call it through `context.client`.
+// The resolved key is used in memory only: never logged, never persisted.
+
+/** Minimal structural shape of the generated client's credential resource. */
+export interface CredentialClient {
+  credential?: {
+    list?: (args?: { location?: unknown }) => Promise<{ data?: unknown }>
+  }
+}
+
+/**
+ * Pure picker: from `GET /api/credential` entries, return the ACTIVE `mistral`
+ * key credential. Tolerates malformed entries; never throws; never logs the key.
+ */
+export function pickStoredMistralKey(entries: unknown): string | undefined {
+  if (!Array.isArray(entries)) return undefined
+  for (const e of entries) {
+    if (typeof e !== "object" || e === null) continue
+    const entry = e as Record<string, unknown>
+    if (entry.integrationID !== "mistral" || entry.active !== true) continue
+    const value = entry.value
+    if (typeof value !== "object" || value === null) continue
+    const v = value as Record<string, unknown>
+    if (v.type === "key" && typeof v.key === "string" && v.key.trim() !== "") return v.key
+  }
+  return undefined
+}
+
+/**
+ * Resolve the active stored Mistral API key via an OpenCode client
+ * (`context.client`). Returns undefined on any failure — no client, the call
+ * throws, or no matching entry. Never throws, never logs the key.
+ */
+export async function resolveStoredKey(client: CredentialClient | undefined): Promise<string | undefined> {
+  try {
+    const credential = client?.credential
+    const list = credential?.list
+    if (!credential || typeof list !== "function") return undefined
+    const res = await list.call(credential, {})
+    return pickStoredMistralKey(res?.data)
+  } catch {
+    return undefined
+  }
+}
+
 // ---- defensive parsing helpers -------------------------------------------------
 
 function errMessage(err: unknown): string {

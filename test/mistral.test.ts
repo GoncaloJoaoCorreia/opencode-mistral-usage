@@ -1,7 +1,7 @@
 // Unit tests for src/lib/mistral.ts — node:test with a mocked fetchImpl.
 // Run: node --test test/   (node >= 22.18 strips types; erasable TS only)
 // @ts-ignore -- node type stripping requires the explicit .ts extension (TS5097 without allowImportingTsExtensions)
-import { DEFAULT_BASE_URL, fetchUsage, parseAdminUsage, parseBudget, parseRateLimits, parseSpendLimit, parseSubscription, parseWorkspaces, resolveKeys } from "../src/lib/mistral.ts"
+import { DEFAULT_BASE_URL, fetchUsage, parseAdminUsage, parseBudget, parseRateLimits, parseSpendLimit, parseSubscription, parseWorkspaces, pickStoredMistralKey, resolveKeys, resolveStoredKey } from "../src/lib/mistral.ts"
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
@@ -270,4 +270,41 @@ test("pure parse functions on fixtures; invalid shapes throw", () => {
   assert.equal(usage.year, 2026)
   assert.equal(usage.workspaceId, "ws-x")
   assert.throws(() => parseAdminUsage([], {}))
+})
+
+// ---- stored-credential fallback (OpenCode /api/credential) ----------------------
+
+test("pickStoredMistralKey: returns the ACTIVE mistral key credential", () => {
+  const entries = [
+    { id: "c1", integrationID: "mistral", label: "Mistral", active: false, value: { type: "key", key: "sk-inactive" } },
+    { id: "c2", integrationID: "linear", label: "linear-project", active: true, value: { type: "oauth", access: "tok" } },
+    { id: "c3", integrationID: "mistral", label: "Mistral 2", active: true, value: { type: "key", key: "sk-active" } },
+  ]
+  assert.equal(pickStoredMistralKey(entries), "sk-active")
+})
+
+test("pickStoredMistralKey: ignores inactive / other integrations / non-key values / malformed entries", () => {
+  assert.equal(pickStoredMistralKey(undefined), undefined)
+  assert.equal(pickStoredMistralKey({}), undefined)
+  assert.equal(pickStoredMistralKey([]), undefined)
+  assert.equal(pickStoredMistralKey([null, 42, "x", { integrationID: "mistral" }]), undefined)
+  assert.equal(pickStoredMistralKey([{ integrationID: "mistral", active: false, value: { type: "key", key: "sk-x" } }]), undefined)
+  assert.equal(pickStoredMistralKey([{ integrationID: "other", active: true, value: { type: "key", key: "sk-x" } }]), undefined)
+  assert.equal(pickStoredMistralKey([{ integrationID: "mistral", active: true, value: { type: "oauth", access: "tok" } }]), undefined)
+  assert.equal(pickStoredMistralKey([{ integrationID: "mistral", active: true, value: { type: "key", key: "   " } }]), undefined)
+  assert.equal(pickStoredMistralKey([{ integrationID: "mistral", active: true }]), undefined)
+})
+
+test("resolveStoredKey: mock client returns the active key; failures → undefined; never throws", async () => {
+  const entries = [{ integrationID: "mistral", active: true, value: { type: "key", key: "sk-stored" } }]
+  const okClient = { credential: { list: async () => ({ data: entries }) } }
+  assert.equal(await resolveStoredKey(okClient), "sk-stored")
+
+  const throwingClient = { credential: { list: async () => { throw new Error("boom") } } }
+  assert.equal(await resolveStoredKey(throwingClient), undefined)
+
+  assert.equal(await resolveStoredKey(undefined), undefined)
+  assert.equal(await resolveStoredKey({}), undefined)
+  assert.equal(await resolveStoredKey({ credential: {} }), undefined)
+  assert.equal(await resolveStoredKey({ credential: { list: async () => ({}) } }), undefined, "missing data array")
 })

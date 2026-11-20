@@ -32,9 +32,13 @@ ways:
 
 ## Configuration
 
-- `MISTRAL_API_KEY` (required): your Mistral API key, read from the environment only — never
-  stored on disk. Used for `/v1/billing/subscription` (plan name) and `/v1/billing/budget`
-  (current-period budget usage) via `x-api-key` / `Authorization: Bearer`.
+- `MISTRAL_API_KEY` (optional when a stored credential exists): your Mistral API key, read from
+  the environment only — never stored on disk. Used for `/v1/billing/subscription` (plan name)
+  and `/v1/billing/budget` (current-period budget usage) via `x-api-key` / `Authorization: Bearer`.
+- **Stored-credential fallback**: when no `MISTRAL_API_KEY` is set, the plugin asks the local
+  OpenCode API (`GET /api/credential`, i.e. `context.client.credential.list()`) for the
+  **active** `mistral` key credential (the `stored` one shown by `opencode auth list`).
+  The key is used in memory only — never logged, never persisted.
 - `MISTRAL_ADMIN_API_KEY` (optional): an admin-scoped key that enables the `/v1/admin/*` rows
   (spend limit, rate limit, usage). When absent or rejected, those rows are hidden and the
   plugin degrades gracefully.
@@ -75,8 +79,8 @@ When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
   `/mistral-usage` in the prompt. **“Mistral: collapse/expand section”** (slash
   `/mistral-toggle`) is the keyboard fallback for the header click.
 - **Graceful states** (the sidebar never crashes):
-  - no `MISTRAL_API_KEY` → hint line `set MISTRAL_API_KEY to show usage`;
-  - 401 → `unauthorized 401 — check MISTRAL_API_KEY`; 403 on the budget endpoint →
+  - no `MISTRAL_API_KEY` and no stored credential → hint line `set MISTRAL_API_KEY to show usage`;
+  - 401 → `unauthorized 401 — check the API key`; 403 on the budget endpoint →
     a muted `budget unavailable: forbidden 403 …` note (plan still shown);
   - network/timeout/parse failures → typed error lines;
   - admin rows render only when an admin key is configured; a rejected admin key
@@ -84,8 +88,9 @@ When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
 
 ## Configuration details
 
-- Keys are read per refresh — plugin options (object form) first, then the environment —
-  and are never written to disk:
+- Keys are read per refresh — plugin options (object form) first, then the environment, then
+  the active stored `mistral` credential via the local OpenCode API — and are never written
+  to disk:
   - `MISTRAL_API_KEY` — standard key. Sent as `x-api-key` **and** `Authorization: Bearer`
     to `/v1/billing/subscription`, `/v1/billing/budget`, `/v1/users/me/workspaces`.
   - `MISTRAL_ADMIN_API_KEY` — admin-scoped key, sent as `Authorization: Bearer` only to

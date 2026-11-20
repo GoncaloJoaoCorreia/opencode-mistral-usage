@@ -19,7 +19,7 @@
 import { createSignal, For, Show } from "solid-js"
 import { Plugin } from "@opencode/plugin/tui"
 // @ts-ignore -- the host loader and node type stripping use the explicit .ts extension (TS5097 without allowImportingTsExtensions)
-import { fetchUsage, resolveKeys, type KeyOptions, type UsageError, type UsageSnapshot } from "./lib/mistral.ts"
+import { fetchUsage, resolveKeys, resolveStoredKey, type CredentialClient, type KeyOptions, type UsageError, type UsageSnapshot } from "./lib/mistral.ts"
 // @ts-ignore -- see above
 import { barLevel, formatMoney, formatNumber, formatResetAt, renderBar, type BudgetDetailInfo } from "./lib/format.ts"
 
@@ -139,8 +139,13 @@ export default Plugin.define({
       setLoading(true)
       try {
         // Keys resolved per refresh: options first (cli.json object form), then env —
-        // so a changed MISTRAL_API_KEY is picked up on the next poll.
+        // so a changed MISTRAL_API_KEY is picked up on the next poll. When no key is
+        // configured anywhere, fall back to the ACTIVE stored Mistral credential via
+        // the local OpenCode API (context.client.credential.list()). In-memory only.
         const keys = resolveKeys(context.options as KeyOptions)
+        if (!keys.apiKey) {
+          keys.apiKey = await resolveStoredKey(context.client as unknown as CredentialClient)
+        }
         setSnapshot(await fetchUsage(keys))
       } catch (err) {
         // fetchUsage never throws; this is the absolute last resort.
@@ -211,7 +216,7 @@ export default Plugin.define({
             </Show>
             <Show when={snap()?.error?.kind === "no-key"}>
               <text>
-                <span style={{ fg: c().muted }}>{"  set MISTRAL_API_KEY to show usage"}</span>
+                <span style={{ fg: c().muted }}>{"  set MISTRAL_API_KEY (or connect Mistral via /connect) to show usage"}</span>
               </text>
             </Show>
             <Show when={snap() != null && snap()?.error?.kind !== "no-key"}>
