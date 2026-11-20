@@ -171,16 +171,12 @@ export default Plugin.define({
         if (pct === null) return "  —"
         return ` ${pct.toFixed(0)}%`
       }
-      const resetText = () => formatResetIn(props.detail?.resetAt)
       return (
         <text>
           <span style={{ fg: props.c.muted }}>{`  ${props.label} `}</span>
           <span style={{ fg: color() }}>{bar().filled}</span>
           <span style={{ fg: props.c.muted }}>{bar().empty}</span>
           <span style={{ fg: props.c.base }}>{pctText()}</span>
-          <Show when={resetText() != null}>
-            <span style={{ fg: props.c.muted }}>{`  ${resetText()}`}</span>
-          </Show>
         </text>
       )
     }
@@ -189,6 +185,8 @@ export default Plugin.define({
       const c = () => palette(((context as { theme?: unknown }).theme ?? {}) as ThemeLike)
       const snap = () => snapshot()
       const width = () => barWidth(props.input)
+      // API and VIBE budgets share the billing-period reset — show it once.
+      const resetText = () => formatResetIn(snap()?.budget?.apiBudget?.resetAt ?? snap()?.budget?.vibeBudget?.resetAt)
       return (
         <box flexDirection="column" marginTop={1}>
           {/* Click target: onMouseDown on the <text> element itself — never on a <span>. */}
@@ -225,6 +223,12 @@ export default Plugin.define({
               </Show>
               <Show when={snap()?.budget?.vibeBudget != null}>
                 <BarRow label="VIBE" detail={snap()?.budget?.vibeBudget} width={width()} c={c()} />
+              </Show>
+              {/* Both budgets reset together — one shared hint below the bars. */}
+              <Show when={resetText() != null}>
+                <text>
+                  <span style={{ fg: c().muted }}>{`  ${resetText()}`}</span>
+                </text>
               </Show>
               <Show when={snap()?.budget?.error != null}>
                 <text>

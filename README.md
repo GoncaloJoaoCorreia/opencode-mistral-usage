@@ -59,8 +59,9 @@ When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
 
 ```
 ▼ MISTRAL ◐
-  API ████████░░░░░░░░ 42%  11 days to reset
+  API ████████░░░░░░░░ 42%
   VIBE ░░░░░░░░░░░░░░░░ —   ← second bar row when vibe_budget is present
+  11 days to reset          ← one shared reset hint below the bars
   RPS 5                  ← only with MISTRAL_ADMIN_API_KEY
   mistral-large-latest 12.5k tpm   ← top models by tokens/min, admin key only
   spend limit reached    ← only when the admin spend limit is hit
@@ -71,11 +72,11 @@ When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
   `onMouseDown` on the header `<text>` element. The collapsed state is persisted
   (host durable storage), so it survives TUI restarts and hot reloads.
 - **Budget bar**: `█`/`░` cells from `usage_percentage` (`/v1/billing/budget`), colored
-  green < 80 %, yellow < 95 %, red ≥ 95 %, followed by the percentage and a relative
-  reset hint — `x days to reset`, or hours/minutes when the reset is closer.
-  `VIBE` gets a second bar row when `vibe_budget` is present. The bar is a fixed
-  20 cells wide (the slot input exposes no width). No plan name or currency amounts
-  are shown.
+  green < 80 %, yellow < 95 %, red ≥ 95 %, followed by the percentage. `VIBE` gets a
+  second bar row when `vibe_budget` is present. Below the bars, one shared relative
+  reset hint — `x days to reset`, or hours/minutes when the reset is closer (API and
+  VIBE reset together, so it is shown once). The bar is a fixed 20 cells wide (the
+  slot input exposes no width). No plan name or currency amounts are shown.
 - **Polling**: usage is fetched on load and every 60 s. **Refresh manually** with the
   palette command **“Mistral: refresh usage”** (`Ctrl+P`) or the slash command
   `/mistral-usage` in the prompt. **“Mistral: collapse/expand section”** (slash
