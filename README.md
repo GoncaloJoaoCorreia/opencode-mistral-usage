@@ -59,9 +59,9 @@ When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
 
 ```
 ▼ MISTRAL ◐
-  API ████████░░░░░░░░ 42%
-  VIBE ░░░░░░░░░░░░░░░░ —   ← second bar row when vibe_budget is present
-  11 days to reset          ← one shared reset hint below the bars
+  API  ████████░░░░░░░░ 42%
+  VIBE █████░░░░░░░░░░░ —   ← second bar row when vibe_budget is present
+  11 days to reset          ← one shared reset hint below the bars (bars aligned)
   RPS 5                  ← only with MISTRAL_ADMIN_API_KEY
   mistral-large-latest 12.5k tpm   ← top models by tokens/min, admin key only
   spend limit reached    ← only when the admin spend limit is hit

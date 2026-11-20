@@ -173,7 +173,8 @@ export default Plugin.define({
       }
       return (
         <text>
-          <span style={{ fg: props.c.muted }}>{`  ${props.label} `}</span>
+          {/* Fixed-width label column so the bars of all rows start at the same column. */}
+          <span style={{ fg: props.c.muted }}>{`  ${props.label.padEnd(5)}`}</span>
           <span style={{ fg: color() }}>{bar().filled}</span>
           <span style={{ fg: props.c.muted }}>{bar().empty}</span>
           <span style={{ fg: props.c.base }}>{pctText()}</span>
