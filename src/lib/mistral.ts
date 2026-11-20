@@ -142,10 +142,12 @@ export function resolveKeys(options: KeyOptions = {}): MistralKeys {
 // `opencode auth export`). A TUI plugin can call it through `context.client`.
 // The resolved key is used in memory only: never logged, never persisted.
 
-/** Minimal structural shape of the generated client's credential resource. */
+/** Minimal structural shape of the generated client's credential resource.
+ * `credential.list()` takes request options (not an input object) and resolves to
+ * the entry array directly; the `{ data: [...] }` wrapper is accepted for tolerance. */
 export interface CredentialClient {
   credential?: {
-    list?: (args?: { location?: unknown }) => Promise<{ data?: unknown }>
+    list?: (requestOptions?: unknown) => Promise<unknown>
   }
 }
 
@@ -177,8 +179,11 @@ export async function resolveStoredKey(client: CredentialClient | undefined): Pr
     const credential = client?.credential
     const list = credential?.list
     if (!credential || typeof list !== "function") return undefined
-    const res = await list.call(credential, {})
-    return pickStoredMistralKey(res?.data)
+    const res = await list.call(credential)
+    // The generated client resolves credential.list() to CredentialEntry[] directly;
+    // accept a { data: [...] } wrapper too, in case the host shape changes.
+    const entries = Array.isArray(res) ? res : (res as { data?: unknown } | null | undefined)?.data
+    return pickStoredMistralKey(entries)
   } catch {
     return undefined
   }

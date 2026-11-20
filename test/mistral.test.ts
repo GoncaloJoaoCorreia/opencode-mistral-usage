@@ -297,8 +297,12 @@ test("pickStoredMistralKey: ignores inactive / other integrations / non-key valu
 
 test("resolveStoredKey: mock client returns the active key; failures → undefined; never throws", async () => {
   const entries = [{ integrationID: "mistral", active: true, value: { type: "key", key: "sk-stored" } }]
-  const okClient = { credential: { list: async () => ({ data: entries }) } }
+  // Real generated client: credential.list() resolves to CredentialEntry[] directly
+  const okClient = { credential: { list: async () => entries } }
   assert.equal(await resolveStoredKey(okClient), "sk-stored")
+  // Tolerate a { data: [...] } wrapper as well
+  const wrappedClient = { credential: { list: async () => ({ data: entries }) } }
+  assert.equal(await resolveStoredKey(wrappedClient), "sk-stored")
 
   const throwingClient = { credential: { list: async () => { throw new Error("boom") } } }
   assert.equal(await resolveStoredKey(throwingClient), undefined)
@@ -306,5 +310,5 @@ test("resolveStoredKey: mock client returns the active key; failures → undefin
   assert.equal(await resolveStoredKey(undefined), undefined)
   assert.equal(await resolveStoredKey({}), undefined)
   assert.equal(await resolveStoredKey({ credential: {} }), undefined)
-  assert.equal(await resolveStoredKey({ credential: { list: async () => ({}) } }), undefined, "missing data array")
+  assert.equal(await resolveStoredKey({ credential: { list: async () => ({}) } }), undefined, "missing entries array")
 })
