@@ -1,7 +1,8 @@
 /** @jsxImportSource @opentui/solid */
 // opencode-mistral-usage — TUI-only OpenCode plugin.
 //
-// Adds a "MISTRAL" section to the sidebar (slot: sidebar.content, appended) showing a
+// Adds a "MISTRAL" section to the sidebar (slot: sidebar.content, prepended above the
+// built-in content) showing a
 // graphical bar for the billing-period budget usage (/v1/billing/budget api_budget /
 // vibe_budget) with a relative "x days to reset" hint, plus admin rate-limit rows when
 // MISTRAL_ADMIN_API_KEY is configured and accepted.
@@ -278,7 +279,7 @@ export default Plugin.define({
     let unregisterSlot: (() => void) | undefined
     try {
       unregisterSlot = context.ui.slot({
-        append: "sidebar.content",
+        prepend: "sidebar.content",
         render: (input) => {
           try {
             return <Section input={input} />

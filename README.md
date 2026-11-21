@@ -55,7 +55,8 @@ npm test           # node --test test/
 ## Usage display (the sidebar section)
 
 When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
-(slot `sidebar.content`, appended below the built-in content):
+(slot `sidebar.content`, prepended above the built-in content — switch the claim to
+`append` to place it at the bottom instead):
 
 ```
 ▼ MISTRAL ◐
