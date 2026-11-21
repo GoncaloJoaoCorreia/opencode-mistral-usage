@@ -1,21 +1,19 @@
 # opencode-mistral-usage
 
 An [OpenCode](https://opencode.ai) plugin that shows your **Mistral budget usage** right in the
-sidebar — no API keys in config, no environment variables:
+sidebar:
 
 ```
 ▼ MISTRAL ◐
   API  ████████░░░░░░░░ 42%
-  VIBE █████░░░░░░░░░░░ —
+  VIBE █████░░░░░░░░░░░ 27%
   11 days to reset
 ```
 
 ## Setup (2 minutes, zero config)
 
 1. **Connect Mistral once in OpenCode**: run `/connect`, pick Mistral, paste your API key.
-   The plugin automatically uses this stored credential (`opencode auth list` shows it as
-   `stored`). Nothing is read from environment variables, and the key is never written to
-   disk by the plugin.
+   The plugin automatically uses this stored credential.
 2. **Point OpenCode at this plugin** — add one line to `~/.config/opencode/cli.json`:
 
    ```json
@@ -37,14 +35,9 @@ That's it. The section polls every 60 s on its own.
   `/mistral-usage`.
 - **Bars**: `█`/`░` show the share of the current billing-period budget already used — green
   under 80 %, yellow under 95 %, red at 95 %+. `API` and `VIBE` each get a bar when their
-  budget exists. Below the bars, one line shows the time until reset (`x days to reset`, or
-  hours/minutes when it's closer).
-- If something's off you'll see a plain hint instead of a crash, e.g. `connect Mistral via
-  /connect to show usage` when no credential is stored, or `unauthorized 401 …` on a bad key.
-  A 403 on the budget endpoint (missing `see_org_inference_usage` permission) just hides the
-  bars with a muted note.
+  budget exists. Below the bars, one line shows the time until reset.
 
-## Advanced configuration (rarely needed)
+## Advanced configuration
 
 - **Custom plugin location**: instead of the `cli.json` path entry, copy/symlink this directory
   into `~/.config/opencode/plugins/opencode-mistral-usage/` or `<project>/.opencode/plugins/`.
@@ -77,4 +70,3 @@ Verify in this order: `npm run typecheck && npm test`. No build, no lint, no CI.
 
 Layout: `src/tui.tsx` (sidebar UI), `src/lib/mistral.ts` (API client, never throws),
 `src/lib/format.ts` (pure bar/reset helpers), `test/` (node:test with mocked fetch).
-See `AGENTS.md` for toolchain quirks and OpenCode plugin API gotchas.
