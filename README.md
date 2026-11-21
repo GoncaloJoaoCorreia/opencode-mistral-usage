@@ -36,9 +36,6 @@ ways:
   from OpenCode's local API (`GET /api/credential`, i.e. `context.client.credential.list()`) —
   the `stored` entry shown by `opencode auth list` (set it via `/connect`). Environment
   variables are not read. The key is used in memory only — never logged, never persisted.
-- **Admin key (optional)**: pass `adminApiKey` via the object form of the `cli.json` `plugins`
-  entry to enable the `/v1/admin/*` rows (rate limits, spend-limit-reached). When absent or
-  rejected, those rows are hidden and the plugin degrades gracefully.
 - Plugin options can be passed via the object form of the `cli.json` `plugins` entry (see above).
 
 ## Development
@@ -60,9 +57,6 @@ When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
   API  ████████░░░░░░░░ 42%
   VIBE █████░░░░░░░░░░░ —   ← second bar row when vibe_budget is present
   11 days to reset          ← one shared reset hint below the bars (bars aligned)
-  RPS 5                  ← only with an adminApiKey plugin option
-  mistral-large-latest 12.5k tpm   ← top models by tokens/min, admin key only
-  spend limit reached    ← only when the admin spend limit is hit
 ```
 
 - **Header row** shows `▼`/`▶` + `MISTRAL` (+ a `◐` while refreshing).
@@ -83,27 +77,23 @@ When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
   - no stored credential → hint line `connect Mistral via /connect to show usage`;
   - 401 → `unauthorized 401 — check the stored Mistral credential`; 403 on the budget endpoint →
     a muted `budget unavailable: forbidden 403 …` note (plan still shown);
-  - network/timeout/parse failures → typed error lines;
-  - admin rows render only when an admin key is configured; a rejected admin key
-    shows small muted notes instead of the rows.
+  - network/timeout/parse failures → typed error lines.
 
 ## Configuration details
 
 - Keys are read per refresh and are never written to disk. Resolution order:
-  1. plugin options (cli.json object form, `apiKey` / `adminApiKey`),
+  1. plugin options (cli.json object form, `apiKey`),
   2. the **active stored `mistral` credential** via the local OpenCode API — the normal path;
      environment variables are not read.
   - the standard key is sent as `x-api-key` **and** `Authorization: Bearer` to
     `/v1/billing/subscription`, `/v1/billing/budget`, `/v1/users/me/workspaces`.
-  - the admin key is sent as `Authorization: Bearer` only to `/v1/admin/spend-limit`,
-    `/v1/admin/rate-limit`, `/v1/admin/usage`. Standard keys are rejected there, so without
-    an admin key those rows are simply absent.
-- Object-form plugin options can pass keys explicitly (overrides the stored credential):
+  - Only these billing/users endpoints are called — no `/v1/admin/*` requests.
+- Object-form plugin options can pass the key explicitly (overrides the stored credential):
 
   ```json
   {
     "plugins": [
-      { "path": "/absolute/path/to/opencode-mistral-usage", "options": { "apiKey": "…", "adminApiKey": "…" } }
+      { "path": "/absolute/path/to/opencode-mistral-usage", "options": { "apiKey": "…" } }
     ]
   }
   ```

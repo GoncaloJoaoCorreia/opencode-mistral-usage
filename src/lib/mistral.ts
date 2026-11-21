@@ -6,9 +6,6 @@
  *   the client also sends `Authorization: Bearer <standard key>` there.
  * - GET /v1/billing/budget        — same auth; may 403 without `see_org_inference_usage`.
  * - GET /v1/users/me/workspaces   — same auth; optional, only used for a label.
- * - GET /v1/admin/spend-limit     — admin key as `Authorization: Bearer` only
- * - GET /v1/admin/rate-limit      — admin key as Bearer only (standard keys rejected)
- * - GET /v1/admin/usage?month=&year=&workspace_id= — admin key as Bearer only
  *
  * The client NEVER throws: every failure degrades into a typed `UsageError`
  * ({ kind: "no-key" | "unauthorized" | "forbidden" | "http" | "network" | "parse" }).
@@ -27,13 +24,11 @@ export interface UsageError {
 
 export interface MistralKeys {
   apiKey?: string
-  adminApiKey?: string
 }
 
-/** cli.json object-form plugin options carry the keys explicitly. */
+/** cli.json object-form plugin options can carry the key explicitly. */
 export interface KeyOptions {
   apiKey?: string
-  adminApiKey?: string
 }
 
 export interface FetchUsageOptions {
@@ -67,47 +62,9 @@ export interface BudgetInfo {
   error?: UsageError
 }
 
-export interface UsageLimitsInfo {
-  usage?: number
-  usageLimit?: number | null
-  totalUsage?: number
-  monthlyLimitReached?: boolean
-  noMonthlyLimit?: boolean
-}
-
-export interface SpendLimitInfo {
-  completion?: UsageLimitsInfo
-  error?: UsageError
-}
-
-export interface RateLimitModelInfo {
-  tokensPerMinute?: number
-  tokensPerMonth?: number
-}
-
-export interface RateLimitsInfo {
-  requestsPerSecond?: number
-  tokensLimitsByModel?: Record<string, RateLimitModelInfo>
-  error?: UsageError
-}
-
-export interface AdminUsageInfo {
-  month?: number
-  year?: number
-  workspaceId?: string
-  error?: UsageError
-}
-
-export interface AdminInfo {
-  spendLimit?: SpendLimitInfo
-  rateLimits?: RateLimitsInfo
-  usage?: AdminUsageInfo
-}
-
 export interface UsageSnapshot {
   plan?: SubscriptionInfo
   budget?: BudgetInfo
-  admin?: AdminInfo
   workspace?: string
   fetchedAt: string
   /** Top-level error — set when no standard key is available (no requests made). */
@@ -132,7 +89,6 @@ function firstNonEmpty(...values: Array<string | undefined>): string | undefined
 export function resolveKeys(options: KeyOptions = {}): MistralKeys {
   return {
     apiKey: firstNonEmpty(options.apiKey),
-    adminApiKey: firstNonEmpty(options.adminApiKey),
   }
 }
 
@@ -254,39 +210,6 @@ export function parseBudget(json: unknown): BudgetInfo {
   return info
 }
 
-export function parseSpendLimit(json: unknown): SpendLimitInfo {
-  const obj = asObject(json, "spend-limit")
-  const limits = asObject(obj.limits, "spend-limit.limits")
-  const completion = asObject(limits.completion, "spend-limit.limits.completion")
-  return {
-    completion: {
-      usage: optNumber(completion.usage),
-      usageLimit: optNumberOrNull(completion.usage_limit),
-      totalUsage: optNumber(completion.total_usage),
-      monthlyLimitReached: optBool(completion.monthly_limit_reached),
-      noMonthlyLimit: optBool(completion.no_monthly_limit),
-    },
-  }
-}
-
-export function parseRateLimits(json: unknown): RateLimitsInfo {
-  const obj = asObject(json, "rate-limit")
-  const info: RateLimitsInfo = { requestsPerSecond: optNumber(obj.requests_per_second) }
-  const byModel = obj.tokens_limits_by_model
-  if (byModel !== null && typeof byModel === "object" && !Array.isArray(byModel)) {
-    const map: Record<string, RateLimitModelInfo> = {}
-    for (const [model, v] of Object.entries(byModel as Record<string, unknown>)) {
-      const m = asObject(v, `rate-limit.tokens_limits_by_model.${model}`)
-      map[model] = {
-        tokensPerMinute: optNumber(m.tokens_per_minute),
-        tokensPerMonth: optNumber(m.tokens_per_month),
-      }
-    }
-    info.tokensLimitsByModel = map
-  }
-  return info
-}
-
 export function parseWorkspaces(json: unknown): { workspace?: string; workspaceId?: string } {
   const obj = asObject(json, "workspaces")
   const list = obj.workspaces
@@ -295,19 +218,6 @@ export function parseWorkspaces(json: unknown): { workspace?: string; workspaceI
   return {
     workspace: optString(first.name) ?? optString(first.id),
     workspaceId: optString(first.id),
-  }
-}
-
-/** /v1/admin/usage has a large shape — only echo the queried month/year/workspace. */
-export function parseAdminUsage(
-  json: unknown,
-  fallback: { month?: number; year?: number; workspaceId?: string },
-): AdminUsageInfo {
-  const obj = asObject(json, "admin/usage")
-  return {
-    month: optNumber(obj.month) ?? fallback.month,
-    year: optNumber(obj.year) ?? fallback.year,
-    workspaceId: fallback.workspaceId,
   }
 }
 
@@ -329,14 +239,6 @@ function standardHeaders(apiKey: string): Record<string, string> {
     accept: "application/json",
     "x-api-key": apiKey,
     Authorization: `Bearer ${apiKey}`,
-  }
-}
-
-function adminHeaders(adminKey: string): Record<string, string> {
-  // Admin endpoints take the admin key as Bearer ONLY — never x-api-key.
-  return {
-    accept: "application/json",
-    Authorization: `Bearer ${adminKey}`,
   }
 }
 
@@ -411,7 +313,7 @@ async function fetchUsageInner(keys: MistralKeys, options: FetchUsageOptions): P
   const base: RequestBase = { fetchImpl, timeoutMs, signal: options.signal }
   const fetchedAt = new Date().toISOString()
 
-  const apiKey = keys.apiKey
+  const apiKey = keys.apiKey?.trim() ? keys.apiKey : undefined
   if (!apiKey) {
     // No standard key → no requests at all, typed degradation.
     return {
@@ -421,7 +323,6 @@ async function fetchUsageInner(keys: MistralKeys, options: FetchUsageOptions): P
   }
 
   const snapshot: UsageSnapshot = { fetchedAt }
-  let workspaceId: string | undefined
 
   // 1) subscription plan — standard key as x-api-key AND Bearer
   {
@@ -450,46 +351,10 @@ async function fetchUsageInner(keys: MistralKeys, options: FetchUsageOptions): P
       try {
         const parsed = parseWorkspaces(r.value)
         if (parsed.workspace) snapshot.workspace = parsed.workspace
-        workspaceId = parsed.workspaceId
       } catch {
         // label is optional — a malformed body here must not fail the snapshot
       }
     }
-  }
-
-  // 4) admin endpoints — only when an admin key is configured
-  const adminKey = keys.adminApiKey
-  if (adminKey) {
-    const admin: AdminInfo = {}
-    const now = new Date()
-    const month = now.getUTCMonth() + 1
-    const year = now.getUTCFullYear()
-
-    const spend = await requestJson(`${baseUrl}/v1/admin/spend-limit`, adminHeaders(adminKey), base)
-    if (!spend.ok) admin.spendLimit = { error: spend.error }
-    else {
-      const p = parseInto(spend, parseSpendLimit)
-      admin.spendLimit = p.error ? { error: p.error } : p.value ?? {}
-    }
-
-    const rate = await requestJson(`${baseUrl}/v1/admin/rate-limit`, adminHeaders(adminKey), base)
-    if (!rate.ok) admin.rateLimits = { error: rate.error }
-    else {
-      const p = parseInto(rate, parseRateLimits)
-      admin.rateLimits = p.error ? { error: p.error } : p.value ?? {}
-    }
-
-    const usageUrl =
-      `${baseUrl}/v1/admin/usage?month=${month}&year=${year}` +
-      (workspaceId ? `&workspace_id=${encodeURIComponent(workspaceId)}` : "")
-    const usage = await requestJson(usageUrl, adminHeaders(adminKey), base)
-    if (!usage.ok) admin.usage = { error: usage.error }
-    else {
-      const p = parseInto(usage, (j) => parseAdminUsage(j, { month, year, workspaceId }))
-      admin.usage = p.error ? { error: p.error } : p.value ?? {}
-    }
-
-    snapshot.admin = admin
   }
 
   return snapshot

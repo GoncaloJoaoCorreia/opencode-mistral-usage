@@ -4,8 +4,7 @@
 // Adds a "MISTRAL" section to the sidebar (slot: sidebar.content, prepended above the
 // built-in content) showing a
 // graphical bar for the billing-period budget usage (/v1/billing/budget api_budget /
-// vibe_budget) with a relative "x days to reset" hint, plus admin rate-limit rows when
-// an admin key is passed via plugin options and accepted.
+// vibe_budget) with a relative "x days to reset" hint.
 //
 // - Header row is a <text> element with onMouseDown (a <text> is a scene Renderable, so the
 //   handler attaches and hit-testing reaches it; handlers on <span> children are silently
@@ -17,12 +16,12 @@
 // - Graceful states: no key → hint line; 401/403/network/parse → typed error lines;
 //   per-section errors render as small muted notes. The render path never throws — every
 //   host call is wrapped defensively so API drift cannot crash the sidebar.
-import { createSignal, For, Show } from "solid-js"
+import { createSignal, Show } from "solid-js"
 import { Plugin } from "@opencode/plugin/tui"
 // @ts-ignore -- the host loader and node type stripping use the explicit .ts extension (TS5097 without allowImportingTsExtensions)
 import { fetchUsage, resolveKeys, resolveStoredKey, type CredentialClient, type KeyOptions, type UsageError, type UsageSnapshot } from "./lib/mistral.ts"
 // @ts-ignore -- see above
-import { barLevel, formatNumber, formatResetIn, renderBar, type BudgetDetailInfo } from "./lib/format.ts"
+import { barLevel, formatResetIn, renderBar, type BudgetDetailInfo } from "./lib/format.ts"
 
 const POLL_MS = 60_000
 const BAR_WIDTH = 20 // fixed bar cells; the sidebar.content slot input exposes no width (Q4), so we try a defensive read and fall back to this
@@ -94,16 +93,6 @@ function barWidth(input: unknown): number {
     /* input shape drift — fall through */
   }
   return BAR_WIDTH
-}
-
-/** Top models by tokens_per_minute for the admin rate-limit rows. */
-function topModels(snapshot: UsageSnapshot): Array<{ model: string; tpm: number }> {
-  const map = snapshot.admin?.rateLimits?.tokensLimitsByModel
-  if (!map) return []
-  return Object.entries(map)
-    .map(([model, v]) => ({ model, tpm: v.tokensPerMinute ?? 0 }))
-    .sort((a, b) => b.tpm - a.tpm)
-    .slice(0, 3)
 }
 
 // ---- the plugin -----------------------------------------------------------------------
@@ -235,38 +224,6 @@ export default Plugin.define({
                 <text>
                   <span style={{ fg: c().muted }}>{"  budget unavailable: "}{snap()?.budget?.error ? errorText(snap()!.budget!.error!) : ""}</span>
                 </text>
-              </Show>
-              {/* Admin rows: only rendered when an admin key was configured (snapshot.admin). */}
-              <Show when={snap()?.admin != null}>
-                <Show when={snap()?.admin?.spendLimit?.completion?.monthlyLimitReached === true}>
-                  <text>
-                    <span style={{ fg: c().error }}>{"  spend limit reached"}</span>
-                  </text>
-                </Show>
-                <Show when={snap()?.admin?.spendLimit?.error != null}>
-                  <text>
-                    <span style={{ fg: c().muted }}>{"  spend-limit: "}{snap()?.admin?.spendLimit?.error ? errorText(snap()!.admin!.spendLimit!.error!) : ""}</span>
-                  </text>
-                </Show>
-                <Show when={snap()?.admin?.rateLimits?.requestsPerSecond != null}>
-                  <text>
-                    <span style={{ fg: c().muted }}>{"  RPS "}</span>
-                    <span style={{ fg: c().base }}>{String(snap()?.admin?.rateLimits?.requestsPerSecond)}</span>
-                  </text>
-                </Show>
-                <For each={topModels(snap() ?? ({} as UsageSnapshot))}>
-                  {(m) => (
-                    <text>
-                      <span style={{ fg: c().muted }}>{"  "}{m.model}{" "}</span>
-                      <span style={{ fg: c().base }}>{formatNumber(m.tpm)}{" tpm"}</span>
-                    </text>
-                  )}
-                </For>
-                <Show when={snap()?.admin?.rateLimits?.error != null}>
-                  <text>
-                    <span style={{ fg: c().muted }}>{"  rate-limit: "}{snap()?.admin?.rateLimits?.error ? errorText(snap()!.admin!.rateLimits!.error!) : ""}</span>
-                  </text>
-                </Show>
               </Show>
             </Show>
           </Show>
