@@ -5,7 +5,7 @@
 // built-in content) showing a
 // graphical bar for the billing-period budget usage (/v1/billing/budget api_budget /
 // vibe_budget) with a relative "x days to reset" hint, plus admin rate-limit rows when
-// MISTRAL_ADMIN_API_KEY is configured and accepted.
+// an admin key is passed via plugin options and accepted.
 //
 // - Header row is a <text> element with onMouseDown (a <text> is a scene Renderable, so the
 //   handler attaches and hit-testing reaches it; handlers on <span> children are silently
@@ -70,7 +70,7 @@ function errorText(e: UsageError): string {
     case "no-key":
       return "no API key"
     case "unauthorized":
-      return `unauthorized${status} — check MISTRAL_API_KEY`
+      return `unauthorized${status} — check the stored Mistral credential`
     case "forbidden":
       return `forbidden${status} — missing permission`
     case "http":
@@ -139,10 +139,9 @@ export default Plugin.define({
       refreshing = true
       setLoading(true)
       try {
-        // Keys resolved per refresh: options first (cli.json object form), then env —
-        // so a changed MISTRAL_API_KEY is picked up on the next poll. When no key is
-        // configured anywhere, fall back to the ACTIVE stored Mistral credential via
-        // the local OpenCode API (context.client.credential.list()). In-memory only.
+        // Keys resolved per refresh: plugin options (cli.json object form) first; when no
+        // standard key is set there, fall back to the ACTIVE stored Mistral credential
+        // via the local OpenCode API (context.client.credential.list()). In-memory only.
         const keys = resolveKeys(context.options as KeyOptions)
         if (!keys.apiKey) {
           keys.apiKey = await resolveStoredKey(context.client as unknown as CredentialClient)
@@ -206,7 +205,7 @@ export default Plugin.define({
             </Show>
             <Show when={snap()?.error?.kind === "no-key"}>
               <text>
-                <span style={{ fg: c().muted }}>{"  set MISTRAL_API_KEY (or connect Mistral via /connect) to show usage"}</span>
+                <span style={{ fg: c().muted }}>{"  connect Mistral via /connect to show usage"}</span>
               </text>
             </Show>
             <Show when={snap() != null && snap()?.error?.kind !== "no-key"}>

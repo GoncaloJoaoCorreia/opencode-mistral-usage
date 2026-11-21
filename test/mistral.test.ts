@@ -120,23 +120,18 @@ test("missing or empty key → no-key error and zero requests", async () => {
   assert.equal(b.calls.length, 0)
 })
 
-test("resolveKeys: explicit option wins, then env; empty strings count as missing", () => {
+test("resolveKeys: plugin options only — env vars are NOT read; empty strings count as missing", () => {
   const savedKey = process.env.MISTRAL_API_KEY
   const savedAdmin = process.env.MISTRAL_ADMIN_API_KEY
   try {
-    delete process.env.MISTRAL_API_KEY
-    delete process.env.MISTRAL_ADMIN_API_KEY
-    assert.equal(resolveKeys().apiKey, undefined)
-    assert.equal(resolveKeys().adminApiKey, undefined)
     process.env.MISTRAL_API_KEY = "env-key"
     process.env.MISTRAL_ADMIN_API_KEY = "env-admin"
-    assert.equal(resolveKeys().apiKey, "env-key")
-    assert.equal(resolveKeys().adminApiKey, "env-admin")
+    assert.equal(resolveKeys().apiKey, undefined, "MISTRAL_API_KEY env must be ignored")
+    assert.equal(resolveKeys().adminApiKey, undefined, "MISTRAL_ADMIN_API_KEY env must be ignored")
     assert.equal(resolveKeys({ apiKey: "opt-key" }).apiKey, "opt-key")
     assert.equal(resolveKeys({ adminApiKey: "opt-admin" }).adminApiKey, "opt-admin")
-    process.env.MISTRAL_API_KEY = ""
-    assert.equal(resolveKeys().apiKey, undefined, "empty env string must be treated as missing")
-    assert.equal(resolveKeys({ apiKey: "" }).apiKey, undefined)
+    assert.equal(resolveKeys({ apiKey: "" }).apiKey, undefined, "empty option counts as missing")
+    assert.equal(resolveKeys({ apiKey: "   " }).apiKey, undefined, "whitespace-only option counts as missing")
   } finally {
     if (savedKey === undefined) delete process.env.MISTRAL_API_KEY
     else process.env.MISTRAL_API_KEY = savedKey

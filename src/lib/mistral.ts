@@ -124,14 +124,15 @@ function firstNonEmpty(...values: Array<string | undefined>): string | undefined
 }
 
 /**
- * Resolve API keys: explicit option first (cli.json object form), then env.
- * `MISTRAL_API_KEY` / `MISTRAL_ADMIN_API_KEY`. Empty or whitespace-only strings
+ * Resolve API keys from plugin options (cli.json object form) only. Environment
+ * variables are deliberately NOT read — the standard key comes from the stored
+ * OpenCode credential (see resolveStoredKey). Empty or whitespace-only strings
  * count as missing. Keys are never logged or persisted.
  */
 export function resolveKeys(options: KeyOptions = {}): MistralKeys {
   return {
-    apiKey: firstNonEmpty(options.apiKey, process.env.MISTRAL_API_KEY),
-    adminApiKey: firstNonEmpty(options.adminApiKey, process.env.MISTRAL_ADMIN_API_KEY),
+    apiKey: firstNonEmpty(options.apiKey),
+    adminApiKey: firstNonEmpty(options.adminApiKey),
   }
 }
 
@@ -415,7 +416,7 @@ async function fetchUsageInner(keys: MistralKeys, options: FetchUsageOptions): P
     // No standard key → no requests at all, typed degradation.
     return {
       fetchedAt,
-      error: { kind: "no-key", message: "no Mistral API key: set MISTRAL_API_KEY or pass options.apiKey" },
+      error: { kind: "no-key", message: "no Mistral API key: connect Mistral via /connect (stored credential) or pass options.apiKey" },
     }
   }
 

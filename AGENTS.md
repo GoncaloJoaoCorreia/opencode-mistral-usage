@@ -40,8 +40,7 @@ No lint, no CI, no build. Verify in this order: `npm run typecheck && npm test`.
 ## Keys / API
 
 - Base `https://api.mistral.ai`. Billing endpoints take the standard key as `x-api-key` **and** `Authorization: Bearer`; `/v1/admin/*` take the admin key as Bearer only (standard keys are rejected there).
-- Key resolution per refresh: plugin options (cli.json object form) → `MISTRAL_API_KEY` env → active stored `mistral` credential via local `GET /api/credential`. **Never log or persist keys** — in-memory only.
-- `MISTRAL_ADMIN_API_KEY` (env or options) enables the admin rows; absent/rejected → rows hidden, typed notes instead.
+- Key resolution per refresh: plugin options (cli.json object form) → **active stored `mistral` credential** via local `GET /api/credential` (`credential.list()` returns the array directly). **Env vars are NOT read** — no `MISTRAL_API_KEY`/`MISTRAL_ADMIN_API_KEY`; admin key comes from the `adminApiKey` option only. **Never log or persist keys** — in-memory only.
 
 ## UI conventions in this repo (deliberate — don't "fix" them)
 
