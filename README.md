@@ -10,22 +10,26 @@ sidebar:
   11 days to reset
 ```
 
-## Setup (2 minutes, zero config)
+## Setup (one command)
 
 1. **Connect Mistral once in OpenCode**: run `/connect`, pick Mistral, paste your API key.
    The plugin automatically uses this stored credential.
-2. **Point OpenCode at this plugin** — add one line to `~/.config/opencode/cli.json`:
+2. **Install the plugin**:
 
-   ```json
-   {
-     "plugins": ["/absolute/path/to/opencode-mistral-usage"]
-   }
+   ```sh
+   opencode plugin add github:GoncaloJoaoCorreia/opencode-mistral-usage
    ```
 
-3. **Reload**: press `/reload` in a running TUI, or just start `opencode`. The MISTRAL section
-   appears at the top of the sidebar. (Check registration with `opencode plugin list`.)
+   This clones the repo, installs it into OpenCode's managed package store, and adds the
+   entry to your global `cli.json` automatically — no manual config editing.
+3. **Reload**: press `/reload` in a running TUI, or just start `opencode`. The MISTRAL
+   section appears at the top of the sidebar.
 
-That's it. The section polls every 60 s on its own.
+Afterwards: `opencode plugin list` shows it (source + commit), `opencode plugin update`
+pulls updates, `opencode plugin remove github:GoncaloJoaoCorreia/opencode-mistral-usage`
+uninstalls it.
+
+That's it — zero config beyond the one command. The section polls every 60 s on its own.
 
 ## Using it
 
@@ -39,8 +43,9 @@ That's it. The section polls every 60 s on its own.
 
 ## Advanced configuration
 
-- **Custom plugin location**: instead of the `cli.json` path entry, copy/symlink this directory
-  into `~/.config/opencode/plugins/opencode-mistral-usage/` or `<project>/.opencode/plugins/`.
+- **Local checkout instead of the GitHub install**: copy/symlink a clone of this repo into
+  `~/.config/opencode/plugins/opencode-mistral-usage/` or `<project>/.opencode/plugins/` —
+  see Development below.
 - **Explicit key override** (object form — overrides the stored credential):
 
   ```json
@@ -59,6 +64,20 @@ and `GET /v1/users/me/workspaces` on `https://api.mistral.ai` (standard key as `
 Bearer, 10 s timeout, all failures degrade to typed states). No admin endpoints are called.
 
 ## Development
+
+Clone the repo and point OpenCode at the local path (live code — edits apply on `/reload`,
+no reinstall):
+
+```sh
+git clone https://github.com/GoncaloJoaoCorreia/opencode-mistral-usage.git
+```
+
+```json
+{
+  "$schema": "https://opencode.ai/v2/cli.json",
+  "plugins": ["/absolute/path/to/opencode-mistral-usage"]
+}
+```
 
 ```sh
 npm install          # install dependencies (package-lock.json is committed)

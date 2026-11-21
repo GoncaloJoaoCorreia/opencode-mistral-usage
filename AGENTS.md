@@ -35,7 +35,8 @@ No lint, no CI, no build. Verify in this order: `npm run typecheck && npm test`.
 - **Mouse handlers go on `<text>` elements (`onMouseDown`), never on `<span>`** — span handlers are silently dropped by the reconciler.
 - `context.client.credential.list()` resolves to `CredentialEntry[]` **directly** — do NOT read `.data` off the result (that bug shipped once; see commit `bfc769d`).
 - The `sidebar.content` slot input exposes only `{ sessionID }` — no width → bars are a fixed 20 cells.
-- Load for local dev via `cli.json`: `{"plugins": ["/abs/path/to/this/repo"]}` (path entry = live code, just `/reload` in the TUI). Confirm with `opencode plugin list`. Discovery dir `~/.config/opencode/plugins/<name>/` also works but is a copy.
+- Distribution install: `opencode plugin add github:GoncaloJoaoCorreia/opencode-mistral-usage` (writes the git specifier into global `cli.json` itself; manage via `plugin list/update/remove`). Verified working — installs to the managed cache with `./tui` intact.
+- Local dev load via `cli.json` path entry: `{"plugins": ["/abs/path/to/this/repo"]}` (live code, just `/reload` in the TUI). Confirm with `opencode plugin list`. Discovery dir `~/.config/opencode/plugins/<name>/` also works but is a copy.
 
 ## Keys / API
 
