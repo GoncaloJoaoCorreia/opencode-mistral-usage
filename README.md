@@ -89,3 +89,8 @@ Verify in this order: `npm run typecheck && npm test`. No build, no lint, no CI.
 
 Layout: `src/tui.tsx` (sidebar UI), `src/lib/mistral.ts` (API client, never throws),
 `src/lib/format.ts` (pure bar/reset helpers), `test/` (node:test with mocked fetch).
+
+## License
+
+Released into the public domain under the [Unlicense](https://unlicense.org/) — see
+[LICENSE](LICENSE). No rights reserved.

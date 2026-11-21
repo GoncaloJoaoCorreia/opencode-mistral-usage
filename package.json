@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "OpenCode TUI plugin: sidebar section showing Mistral plan usage and limits with a graphical bar and collapsible header",
+  "license": "Unlicense",
   "exports": {
     "./tui": "./src/tui.tsx"
   },
