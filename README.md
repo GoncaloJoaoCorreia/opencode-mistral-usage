@@ -1,16 +1,22 @@
 # opencode-mistral-usage
 
-An [OpenCode](https://opencode.ai) TUI plugin (V2 plugin API) that adds a **Mistral** section to
-the sidebar showing your current billing-period budget usage as a graphical bar with a relative
-reset hint, and a collapsible header (click to collapse/expand, state persisted). Usage is
-polled every 60 s and can be refreshed manually via a palette command.
+An [OpenCode](https://opencode.ai) plugin that shows your **Mistral budget usage** right in the
+sidebar — no API keys in config, no environment variables:
 
-## Install / loading
+```
+▼ MISTRAL ◐
+  API  ████████░░░░░░░░ 42%
+  VIBE █████░░░░░░░░░░░ —
+  11 days to reset
+```
 
-This is a TUI-only package: its only export is `./tui` (`src/tui.tsx`). Load it in one of these
-ways:
+## Setup (2 minutes, zero config)
 
-1. **`cli.json` plugins entry** (local path):
+1. **Connect Mistral once in OpenCode**: run `/connect`, pick Mistral, paste your API key.
+   The plugin automatically uses this stored credential (`opencode auth list` shows it as
+   `stored`). Nothing is read from environment variables, and the key is never written to
+   disk by the plugin.
+2. **Point OpenCode at this plugin** — add one line to `~/.config/opencode/cli.json`:
 
    ```json
    {
@@ -18,77 +24,31 @@ ways:
    }
    ```
 
-   or with options (object form):
+3. **Reload**: press `/reload` in a running TUI, or just start `opencode`. The MISTRAL section
+   appears at the top of the sidebar. (Check registration with `opencode plugin list`.)
 
-   ```json
-   {
-     "plugins": [{ "path": "/absolute/path/to/opencode-mistral-usage", "options": {} }]
-   }
-   ```
+That's it. The section polls every 60 s on its own.
 
-2. **Plugin discovery**: copy or symlink this directory to
-   `<config>/plugins/opencode-mistral-usage/` (e.g. `~/.config/opencode/plugins/`) or
-   `<project>/.opencode/plugins/opencode-mistral-usage/`.
+## Using it
 
-## Configuration
+- **Click the section header** to collapse/expand it — the state persists across restarts.
+  Keyboard fallback: slash command `/mistral-toggle`.
+- **Refresh on demand**: palette command **“Mistral: refresh usage”** (`Ctrl+P`) or slash
+  `/mistral-usage`.
+- **Bars**: `█`/`░` show the share of the current billing-period budget already used — green
+  under 80 %, yellow under 95 %, red at 95 %+. `API` and `VIBE` each get a bar when their
+  budget exists. Below the bars, one line shows the time until reset (`x days to reset`, or
+  hours/minutes when it's closer).
+- If something's off you'll see a plain hint instead of a crash, e.g. `connect Mistral via
+  /connect to show usage` when no credential is stored, or `unauthorized 401 …` on a bad key.
+  A 403 on the budget endpoint (missing `see_org_inference_usage` permission) just hides the
+  bars with a muted note.
 
-- **API key: stored credential only.** The plugin reads the **active** `mistral` key credential
-  from OpenCode's local API (`GET /api/credential`, i.e. `context.client.credential.list()`) —
-  the `stored` entry shown by `opencode auth list` (set it via `/connect`). Environment
-  variables are not read. The key is used in memory only — never logged, never persisted.
-- Plugin options can be passed via the object form of the `cli.json` `plugins` entry (see above).
+## Advanced configuration (rarely needed)
 
-## Development
-
-```sh
-npm install        # install dependencies (produces package-lock.json)
-npm run typecheck  # tsc --noEmit
-npm test           # node --test test/
-```
-
-## Usage display (the sidebar section)
-
-When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
-(slot `sidebar.content`, prepended above the built-in content — switch the claim to
-`append` to place it at the bottom instead):
-
-```
-▼ MISTRAL ◐
-  API  ████████░░░░░░░░ 42%
-  VIBE █████░░░░░░░░░░░ —   ← second bar row when vibe_budget is present
-  11 days to reset          ← one shared reset hint below the bars (bars aligned)
-```
-
-- **Header row** shows `▼`/`▶` + `MISTRAL` (+ a `◐` while refreshing).
-  **Click the header row** to collapse/expand the section — the click handler is
-  `onMouseDown` on the header `<text>` element. The collapsed state is persisted
-  (host durable storage), so it survives TUI restarts and hot reloads.
-- **Budget bar**: `█`/`░` cells from `usage_percentage` (`/v1/billing/budget`), colored
-  green < 80 %, yellow < 95 %, red ≥ 95 %, followed by the percentage. `VIBE` gets a
-  second bar row when `vibe_budget` is present. Below the bars, one shared relative
-  reset hint — `x days to reset`, or hours/minutes when the reset is closer (API and
-  VIBE reset together, so it is shown once). The bar is a fixed 20 cells wide (the
-  slot input exposes no width). No plan name or currency amounts are shown.
-- **Polling**: usage is fetched on load and every 60 s. **Refresh manually** with the
-  palette command **“Mistral: refresh usage”** (`Ctrl+P`) or the slash command
-  `/mistral-usage` in the prompt. **“Mistral: collapse/expand section”** (slash
-  `/mistral-toggle`) is the keyboard fallback for the header click.
-- **Graceful states** (the sidebar never crashes):
-  - no stored credential → hint line `connect Mistral via /connect to show usage`;
-  - 401 → `unauthorized 401 — check the stored Mistral credential`; 403 on the budget endpoint →
-    a muted `budget unavailable: forbidden 403 …` note (plan still shown);
-  - network/timeout/parse failures → typed error lines.
-
-## Configuration details
-
-- Keys are read per refresh and are never written to disk. Resolution order:
-  1. plugin options (cli.json object form, `apiKey`),
-  2. the **active stored `mistral` credential** via the local OpenCode API — the normal path;
-     environment variables are not read.
-  - the standard key is sent as `x-api-key` **and** `Authorization: Bearer` to
-    `/v1/billing/subscription`, `/v1/billing/budget`, `/v1/users/me/workspaces`.
-  - Only these billing/users endpoints are called — no `/v1/admin/*` requests.
-- Object-form plugin options can pass the key explicitly (overrides the stored credential):
+- **Custom plugin location**: instead of the `cli.json` path entry, copy/symlink this directory
+  into `~/.config/opencode/plugins/opencode-mistral-usage/` or `<project>/.opencode/plugins/`.
+- **Explicit key override** (object form — overrides the stored credential):
 
   ```json
   {
@@ -97,7 +57,24 @@ When the plugin is loaded, a **MISTRAL** section appears in the TUI sidebar
     ]
   }
   ```
-- `/v1/billing/budget` may 403 without the `see_org_inference_usage` permission —
-  the section then shows the plan without the bar plus a muted note.
-- Requests have a 10 s timeout; all failures degrade to typed states
-  (`no-key` / `unauthorized` / `forbidden` / `http` / `network` / `parse`).
+
+- **Position in the sidebar**: the section is `prepend`ed to `sidebar.content` (top). Change the
+  claim to `append` in `src/tui.tsx` to put it at the bottom.
+
+Under the hood the plugin calls only `GET /v1/billing/subscription`, `GET /v1/billing/budget`
+and `GET /v1/users/me/workspaces` on `https://api.mistral.ai` (standard key as `x-api-key` +
+Bearer, 10 s timeout, all failures degrade to typed states). No admin endpoints are called.
+
+## Development
+
+```sh
+npm install          # install dependencies (package-lock.json is committed)
+npm run typecheck    # tsc --noEmit
+npm test             # node --test test/ (node >= 22.18, runs .ts directly)
+```
+
+Verify in this order: `npm run typecheck && npm test`. No build, no lint, no CI.
+
+Layout: `src/tui.tsx` (sidebar UI), `src/lib/mistral.ts` (API client, never throws),
+`src/lib/format.ts` (pure bar/reset helpers), `test/` (node:test with mocked fetch).
+See `AGENTS.md` for toolchain quirks and OpenCode plugin API gotchas.
